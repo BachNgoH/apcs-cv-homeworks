@@ -1,0 +1,3 @@
+/Users/bachngo/Desktop/school world/cv/week1/build/CMakeFiles/ImageManipulation.dir
+/Users/bachngo/Desktop/school world/cv/week1/build/CMakeFiles/edit_cache.dir
+/Users/bachngo/Desktop/school world/cv/week1/build/CMakeFiles/rebuild_cache.dir
