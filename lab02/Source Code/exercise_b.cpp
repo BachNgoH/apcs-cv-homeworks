@@ -10,10 +10,10 @@ using namespace std;
 
 // Global variables for trackbars
 int minThreshold = 10;
-int maxThreshold = 200;
+int maxThreshold = 220;
 int minArea = 100;
-int minCircularity = 30; // 0-100 (percentage)
-int minConvexity = 50;   // 0-100 (percentage)
+int minCircularity = 4;  // 0-100 (percentage) - matches image
+int minConvexity = 58;   // 0-100 (percentage) - matches image
 int minInertia = 10;     // 0-100 (percentage)
 int filterByColor = 1;   // 0 or 1
 int blobColor = 255;     // 0 or 255
@@ -75,44 +75,178 @@ void blobDetection(int, void*) {
         setTrackbarPos("Max Threshold", windowName, maxThreshold);
     }
     
-    // Set up blob detector parameters
-    SimpleBlobDetector::Params params;
+    // ========== MANUAL MULTI-THRESHOLD BLOB DETECTION ==========
     
-    // Thresholds
-    params.minThreshold = minThreshold;
-    params.maxThreshold = maxThreshold;
-    params.thresholdStep = 10;
+    // Keep color image for display
+    Mat colorImage = srcImage.clone();
     
-    // Filter by Area
-    params.filterByArea = true;
-    params.minArea = minArea;
-    params.maxArea = 100000;
+    // Step 1: Convert to grayscale for detection
+    Mat gray;
+    if (srcImage.channels() == 3) {
+        cvtColor(srcImage, gray, COLOR_BGR2GRAY);
+    } else {
+        gray = srcImage.clone();
+        cvtColor(gray, colorImage, COLOR_GRAY2BGR);
+    }
     
-    // Filter by Circularity
-    params.filterByCircularity = true;
-    params.minCircularity = minCircularity / 100.0f;
+    // Step 2: Multi-threshold detection (OPTIMIZED)
+    vector<vector<Point2f>> allCenters;  // Centers at each threshold level
+    int thresholdStep = 20;  // Increased from 10 for better performance
     
-    // Filter by Convexity
-    params.filterByConvexity = true;
-    params.minConvexity = minConvexity / 100.0f;
+    cout << "Detecting blobs across " << ((maxThreshold - minThreshold) / thresholdStep) << " threshold levels..." << flush;
     
-    // Filter by Inertia
-    params.filterByInertia = true;
-    params.minInertiaRatio = minInertia / 100.0f;
+    for (int thresh = minThreshold; thresh < maxThreshold; thresh += thresholdStep) {
+        // Apply threshold
+        Mat binary;
+        if (blobColor == 255) {
+            threshold(gray, binary, thresh, 255, THRESH_BINARY);
+        } else {
+            threshold(gray, binary, thresh, 255, THRESH_BINARY_INV);
+        }
+        
+        // Find contours
+        vector<vector<Point>> contours;
+        findContours(binary, contours, RETR_LIST, CHAIN_APPROX_SIMPLE);
+        
+        // Store centers of blobs at this threshold
+        vector<Point2f> centersAtThisThreshold;
+        
+        for (size_t i = 0; i < contours.size(); i++) {
+            double area = contourArea(contours[i]);
+            if (area < minArea) continue;
+            
+            // Calculate center
+            Moments m = moments(contours[i]);
+            if (m.m00 == 0) continue;
+            
+            Point2f center(m.m10 / m.m00, m.m01 / m.m00);
+            centersAtThisThreshold.push_back(center);
+        }
+        
+        allCenters.push_back(centersAtThisThreshold);
+    }
     
-    // Filter by Color
-    params.filterByColor = (filterByColor == 1);
-    params.blobColor = blobColor;
+    // Step 3: Group blob centers across thresholds
+    // Centers that are close together across thresholds are the same blob
+    vector<vector<Point2f>> blobGroups;
+    vector<bool> used(allCenters.size());
     
-    // Create detector
-    Ptr<SimpleBlobDetector> detector = SimpleBlobDetector::create(params);
+    for (size_t i = 0; i < allCenters.size(); i++) {
+        for (size_t j = 0; j < allCenters[i].size(); j++) {
+            Point2f center = allCenters[i][j];
+            
+            // Find if this center belongs to an existing group
+            bool foundGroup = false;
+            for (size_t g = 0; g < blobGroups.size(); g++) {
+                // Check if close to any center in this group
+                for (size_t k = 0; k < blobGroups[g].size(); k++) {
+                    float dist = norm(center - blobGroups[g][k]);
+                    if (dist < 5.0) {  // Distance threshold for grouping
+                        blobGroups[g].push_back(center);
+                        foundGroup = true;
+                        break;
+                    }
+                }
+                if (foundGroup) break;
+            }
+            
+            // Create new group if not found
+            if (!foundGroup) {
+                vector<Point2f> newGroup;
+                newGroup.push_back(center);
+                blobGroups.push_back(newGroup);
+            }
+        }
+    }
     
-    // Detect blobs
+    // Step 4: Calculate final blob centers and filter
     vector<KeyPoint> keypoints;
-    detector->detect(srcImage, keypoints);
     
-    // Draw detected blobs
-    resultImage = srcImage.clone();
+    for (size_t g = 0; g < blobGroups.size(); g++) {
+        if (blobGroups[g].size() < 2) continue;  // Require blob to appear in at least 2 thresholds
+        
+        // Calculate average center
+        Point2f avgCenter(0, 0);
+        for (size_t i = 0; i < blobGroups[g].size(); i++) {
+            avgCenter += blobGroups[g][i];
+        }
+        avgCenter.x /= blobGroups[g].size();
+        avgCenter.y /= blobGroups[g].size();
+        
+        // Get contour at middle threshold for filtering
+        int midThresh = (minThreshold + maxThreshold) / 2;
+        Mat binary;
+        if (blobColor == 255) {
+            threshold(gray, binary, midThresh, 255, THRESH_BINARY);
+        } else {
+            threshold(gray, binary, midThresh, 255, THRESH_BINARY_INV);
+        }
+        
+        vector<vector<Point>> contours;
+        findContours(binary, contours, RETR_LIST, CHAIN_APPROX_SIMPLE);
+        
+        // Find contour closest to avgCenter
+        int bestContour = -1;
+        double minDist = 1e9;
+        
+        for (size_t i = 0; i < contours.size(); i++) {
+            Moments m = moments(contours[i]);
+            if (m.m00 == 0) continue;
+            
+            Point2f contourCenter(m.m10 / m.m00, m.m01 / m.m00);
+            double dist = norm(avgCenter - contourCenter);
+            
+            if (dist < minDist) {
+                minDist = dist;
+                bestContour = i;
+            }
+        }
+        
+        if (bestContour == -1 || minDist > 10.0) continue;
+        
+        // Apply shape filters
+        double area = contourArea(contours[bestContour]);
+        if (area < minArea) continue;
+        
+        double perimeter = arcLength(contours[bestContour], true);
+        if (perimeter == 0) continue;
+        
+        double circularity = 4.0 * CV_PI * area / (perimeter * perimeter);
+        if (circularity < minCircularity / 100.0f) continue;
+        
+        vector<Point> hull;
+        convexHull(contours[bestContour], hull);
+        double hullArea = contourArea(hull);
+        if (hullArea == 0) continue;
+        
+        double convexity = area / hullArea;
+        if (convexity < minConvexity / 100.0f) continue;
+        
+        Moments m = moments(contours[bestContour]);
+        double denominator = sqrt(pow(2 * m.mu11, 2) + pow(m.mu20 - m.mu02, 2));
+        double ratio = 1.0;
+        
+        if (denominator > 1e-2) {
+            double cosmin = (m.mu20 - m.mu02) / denominator;
+            double sinmin = 2 * m.mu11 / denominator;
+            double imin = 0.5 * (m.mu20 + m.mu02) - 0.5 * (m.mu20 - m.mu02) * cosmin - m.mu11 * sinmin;
+            double imax = 0.5 * (m.mu20 + m.mu02) + 0.5 * (m.mu20 - m.mu02) * cosmin + m.mu11 * sinmin;
+            ratio = imin / imax;
+        }
+        
+        if (ratio < minInertia / 100.0f) continue;
+        
+        // Create keypoint
+        float radius = sqrt(area / CV_PI);
+        keypoints.push_back(KeyPoint(avgCenter, radius * 2));
+    }
+    
+    cout << " Done! Found " << keypoints.size() << " blobs." << endl;
+    
+    // ========== END MANUAL BLOB DETECTION ==========
+    
+    // Draw detected blobs on color image
+    resultImage = colorImage.clone();
     drawKeypoints(resultImage, keypoints, resultImage, 
                   Scalar(0, 0, 255), 
                   DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
@@ -141,12 +275,7 @@ void blobDetection(int, void*) {
 void processImage(const Mat& img) {
     srcImage = img.clone();
     
-    // Convert to grayscale if needed
-    if (srcImage.channels() == 3) {
-        cvtColor(srcImage, srcImage, COLOR_BGR2GRAY);
-    }
-    
-    // Perform blob detection
+    // Perform blob detection (will handle grayscale conversion internally)
     blobDetection(0, 0);
 }
 

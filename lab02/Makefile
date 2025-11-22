@@ -14,6 +14,12 @@ TARGET_B = exercise_b
 TARGET_C = exercise_c
 TARGET_D = exercise_d
 TARGET_E = exercise_e
+TARGET_F = exercise_f
+TARGET_G = exercise_g
+TARGET_H = exercise_h
+TARGET_I = exercise_i
+TARGET_MAIN = cvlab
+TARGET_AUTO = cvlab_auto
 
 # Source files
 SOURCES_A = $(SRC_DIR)/exercise_a.cpp
@@ -21,9 +27,27 @@ SOURCES_B = $(SRC_DIR)/exercise_b.cpp
 SOURCES_C = $(SRC_DIR)/exercise_c.cpp
 SOURCES_D = $(SRC_DIR)/exercise_d.cpp
 SOURCES_E = $(SRC_DIR)/exercise_e.cpp
+SOURCES_F = $(SRC_DIR)/exercise_f.cpp
+SOURCES_G = $(SRC_DIR)/exercise_g.cpp
+SOURCES_H = $(SRC_DIR)/exercise_h.cpp
+SOURCES_I = $(SRC_DIR)/exercise_i.cpp
+SOURCES_MAIN = $(SRC_DIR)/main.cpp
+SOURCES_AUTO = $(SRC_DIR)/cvlab_auto.cpp
 
 # Build all executables
-all: $(RELEASE_DIR)/$(TARGET_A) $(RELEASE_DIR)/$(TARGET_B) $(RELEASE_DIR)/$(TARGET_C) $(RELEASE_DIR)/$(TARGET_D) $(RELEASE_DIR)/$(TARGET_E)
+all: $(RELEASE_DIR)/$(TARGET_MAIN) $(RELEASE_DIR)/$(TARGET_AUTO) $(RELEASE_DIR)/$(TARGET_A) $(RELEASE_DIR)/$(TARGET_B) $(RELEASE_DIR)/$(TARGET_C) $(RELEASE_DIR)/$(TARGET_D) $(RELEASE_DIR)/$(TARGET_E) $(RELEASE_DIR)/$(TARGET_F) $(RELEASE_DIR)/$(TARGET_G) $(RELEASE_DIR)/$(TARGET_H) $(RELEASE_DIR)/$(TARGET_I)
+
+# Build main unified program (requires opencv_contrib)
+$(RELEASE_DIR)/$(TARGET_MAIN): $(SOURCES_MAIN)
+	@mkdir -p $(RELEASE_DIR)
+	$(CXX) $(CXXFLAGS) $(SOURCES_MAIN) -o $(RELEASE_DIR)/$(TARGET_MAIN) $(OPENCV_FLAGS)
+	@echo "Build complete: $(RELEASE_DIR)/$(TARGET_MAIN)"
+
+# Build automated program
+$(RELEASE_DIR)/$(TARGET_AUTO): $(SOURCES_AUTO)
+	@mkdir -p $(RELEASE_DIR)
+	$(CXX) $(CXXFLAGS) $(SOURCES_AUTO) -o $(RELEASE_DIR)/$(TARGET_AUTO) $(OPENCV_FLAGS)
+	@echo "Build complete: $(RELEASE_DIR)/$(TARGET_AUTO)"
 
 # Build exercise_a
 $(RELEASE_DIR)/$(TARGET_A): $(SOURCES_A)
@@ -54,12 +78,36 @@ $(RELEASE_DIR)/$(TARGET_E): $(SOURCES_E)
 	@mkdir -p $(RELEASE_DIR)
 	$(CXX) $(CXXFLAGS) $(SOURCES_E) -o $(RELEASE_DIR)/$(TARGET_E) $(OPENCV_FLAGS)
 	@echo "Build complete: $(RELEASE_DIR)/$(TARGET_E)"
+
+# Build exercise_f (requires opencv_contrib)
+$(RELEASE_DIR)/$(TARGET_F): $(SOURCES_F)
+	@mkdir -p $(RELEASE_DIR)
+	$(CXX) $(CXXFLAGS) $(SOURCES_F) -o $(RELEASE_DIR)/$(TARGET_F) $(OPENCV_FLAGS)
+	@echo "Build complete: $(RELEASE_DIR)/$(TARGET_F)"
+
+# Build exercise_g
+$(RELEASE_DIR)/$(TARGET_G): $(SOURCES_G)
+	@mkdir -p $(RELEASE_DIR)
+	$(CXX) $(CXXFLAGS) $(SOURCES_G) -o $(RELEASE_DIR)/$(TARGET_G) $(OPENCV_FLAGS)
+	@echo "Build complete: $(RELEASE_DIR)/$(TARGET_G)"
+
+# Build exercise_h (requires opencv_contrib)
+$(RELEASE_DIR)/$(TARGET_H): $(SOURCES_H)
+	@mkdir -p $(RELEASE_DIR)
+	$(CXX) $(CXXFLAGS) $(SOURCES_H) -o $(RELEASE_DIR)/$(TARGET_H) $(OPENCV_FLAGS)
+	@echo "Build complete: $(RELEASE_DIR)/$(TARGET_H)"
+
+# Build exercise_i
+$(RELEASE_DIR)/$(TARGET_I): $(SOURCES_I)
+	@mkdir -p $(RELEASE_DIR)
+	$(CXX) $(CXXFLAGS) $(SOURCES_I) -o $(RELEASE_DIR)/$(TARGET_I) $(OPENCV_FLAGS)
+	@echo "Build complete: $(RELEASE_DIR)/$(TARGET_I)"
 	@echo "Dependencies: OpenCV 4.x" > $(RELEASE_DIR)/dll_requirements.txt
 	@echo "To install OpenCV on macOS: brew install opencv" >> $(RELEASE_DIR)/dll_requirements.txt
 
 # Clean build artifacts
 clean:
-	rm -rf $(RELEASE_DIR)/$(TARGET_A) $(RELEASE_DIR)/$(TARGET_B) $(RELEASE_DIR)/$(TARGET_C) $(RELEASE_DIR)/$(TARGET_D) $(RELEASE_DIR)/$(TARGET_E)
+	rm -rf $(RELEASE_DIR)/$(TARGET_MAIN) $(RELEASE_DIR)/$(TARGET_AUTO) $(RELEASE_DIR)/$(TARGET_A) $(RELEASE_DIR)/$(TARGET_B) $(RELEASE_DIR)/$(TARGET_C) $(RELEASE_DIR)/$(TARGET_D) $(RELEASE_DIR)/$(TARGET_E) $(RELEASE_DIR)/$(TARGET_F) $(RELEASE_DIR)/$(TARGET_G) $(RELEASE_DIR)/$(TARGET_H) $(RELEASE_DIR)/$(TARGET_I)
 	@echo "Cleaned build artifacts"
 
 # Run with test image
