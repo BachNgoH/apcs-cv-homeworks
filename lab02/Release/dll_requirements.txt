@@ -1,0 +1,2 @@
+Dependencies: OpenCV 4.x
+To install OpenCV on macOS: brew install opencv
